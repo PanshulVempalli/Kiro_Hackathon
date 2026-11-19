@@ -1,0 +1,12 @@
+# Tasks
+- [x] 1. Pure core: serializeMenu, parseMenu, wrap, htmlToMenu + property tests
+- [x] 2. SSRF guard + tests
+- [x] 3. HTTP server /api/browse
+- [x] 4. CRT front end
+- [ ] 5. Add prefers-reduced-motion handling (Req 5.2)
+- [ ] 6. Keyboard shortcuts: back (Backspace), focus URL ("/")
+- [ ] 7. History stack + "Raw Gopher" view toggle (?raw=1)
+- [ ] 8. AI "Ghostwriter": summarize page at top of menu (use an MCP server or API; add steering for prompts)
+- [ ] 9. Costume polish: ASCII ghost banner, glitch transitions
+- [ ] 10. Real gopher:// support: TCP client for gopher:// URLs (Resurrection depth)
+- [ ] 11. Deploy (Render/Fly/AWS), record demo, finish README write-up

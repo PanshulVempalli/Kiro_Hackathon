@@ -1,0 +1,14 @@
+{
+  "name": "gopherghost",
+  "version": "0.1.0",
+  "description": "Resurrecting Gopher: a haunted CRT reader that turns the modern web into Gopher menus.",
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "start": "tsx src/server.ts",
+    "test": "vitest run"
+  },
+  "dependencies": { "cheerio": "^1.0.0", "tsx": "^4.19.0" },
+  "devDependencies": { "fast-check": "^3.23.0", "typescript": "^5.6.0", "vitest": "^2.1.0", "@types/node": "^22.0.0" }
+}

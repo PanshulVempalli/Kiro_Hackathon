@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GopherGhost</title>
+<style>
+:root{--g:#7CFF6B;--bg:#050a05;--dim:#2f7a2a}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--g);font:16px/1.35 "IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;min-height:100vh}
+body::after{content:"";position:fixed;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(0,0,0,.25) 0 1px,transparent 1px 3px);animation:flick 4s infinite}
+@keyframes flick{50%{opacity:.85}}
+main{max-width:84ch;margin:0 auto;padding:24px 16px 80px;text-shadow:0 0 6px var(--g)}
+h1{font-size:1.1rem;margin:0 0 4px;letter-spacing:.2em}
+.sub{color:var(--dim);margin-bottom:16px}
+form{display:flex;gap:8px;margin-bottom:16px}
+input{flex:1;background:#000;border:1px solid var(--g);color:var(--g);padding:8px;font:inherit}
+button,.link{background:none;border:0;color:var(--g);font:inherit;cursor:pointer;text-align:left;padding:0}
+form button{border:1px solid var(--g);padding:8px 14px}
+.link{display:block;width:100%;text-decoration:underline}
+.link:hover,.link:focus{background:var(--g);color:#000;outline:none}
+.line{white-space:pre-wrap;min-height:1.35em}
+#err{color:#ff6b6b}
+</style></head>
+<body><main>
+<h1>👻 GOPHERGHOST</h1>
+<div class="sub">The 1991 internet, haunting the modern web. Enter any URL.</div>
+<form id="f"><input id="u" aria-label="URL" placeholder="https://en.wikipedia.org/wiki/Gopher_(protocol)" autofocus><button>GO</button></form>
+<div id="err" role="alert"></div>
+<div id="out" aria-live="polite"></div>
+</main>
+<script>
+const out=document.getElementById("out"),err=document.getElementById("err"),u=document.getElementById("u");
+async function go(url){
+  err.textContent="";out.textContent="summoning...";u.value=url;
+  try{
+    const r=await fetch("/api/browse?url="+encodeURIComponent(url));
+    const d=await r.json();
+    if(!r.ok)throw new Error(d.error);
+    out.textContent="";
+    for(const it of d.items){
+      if(it.type==="h"){
+        const b=document.createElement("button");b.className="link";b.textContent="[h] "+it.display;
+        b.onclick=()=>go(it.selector.slice(4));out.append(b);
+      }else{const l=document.createElement("div");l.className="line";l.textContent=it.display;out.append(l);}
+    }
+    scrollTo(0,0);
+  }catch(e){out.textContent="";err.textContent="The spirits refused: "+e.message;}
+}
+document.getElementById("f").onsubmit=e=>{e.preventDefault();go(u.value.trim());};
+</script></body></html>
