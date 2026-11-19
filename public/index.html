@@ -7,6 +7,7 @@
 body{margin:0;background:var(--bg);color:var(--g);font:16px/1.35 "IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;min-height:100vh}
 body::after{content:"";position:fixed;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(0,0,0,.25) 0 1px,transparent 1px 3px);animation:flick 4s infinite}
 @keyframes flick{50%{opacity:.85}}
+@media(prefers-reduced-motion:reduce){body::after{animation:none}}
 main{max-width:84ch;margin:0 auto;padding:24px 16px 80px;text-shadow:0 0 6px var(--g)}
 h1{font-size:1.1rem;margin:0 0 4px;letter-spacing:.2em}
 .sub{color:var(--dim);margin-bottom:16px}
@@ -23,26 +24,88 @@ form button{border:1px solid var(--g);padding:8px 14px}
 <h1>👻 GOPHERGHOST</h1>
 <div class="sub">The 1991 internet, haunting the modern web. Enter any URL.</div>
 <form id="f"><input id="u" aria-label="URL" placeholder="https://en.wikipedia.org/wiki/Gopher_(protocol)" autofocus><button>GO</button></form>
+<div id="toolbar" style="display:none;margin-bottom:12px;gap:8px;flex-wrap:wrap">
+  <button id="btn-back" class="link" style="text-decoration:none;border:1px solid var(--dim);padding:4px 10px" disabled>← back</button>
+  <button id="btn-raw"  class="link" style="text-decoration:none;border:1px solid var(--dim);padding:4px 10px">[ raw gopher ]</button>
+</div>
 <div id="err" role="alert"></div>
 <div id="out" aria-live="polite"></div>
 </main>
 <script>
 const out=document.getElementById("out"),err=document.getElementById("err"),u=document.getElementById("u");
-async function go(url){
-  err.textContent="";out.textContent="summoning...";u.value=url;
+const toolbar=document.getElementById("toolbar"),btnBack=document.getElementById("btn-back"),btnRaw=document.getElementById("btn-raw");
+
+// History stack: array of URLs, pos points at the current entry.
+let hist=[],pos=-1,rawMode=false,lastItems=null,lastUrl="";
+
+function renderMenu(items){
+  out.textContent="";
+  for(const it of items){
+    if(it.type==="h"){
+      const b=document.createElement("button");b.className="link";b.textContent="[h] "+it.display;
+      b.onclick=()=>go(it.selector.slice(4));out.append(b);
+    }else{const l=document.createElement("div");l.className="line";l.textContent=it.display;out.append(l);}
+  }
+}
+
+function renderRaw(text){
+  out.textContent="";
+  const pre=document.createElement("pre");pre.style.whiteSpace="pre-wrap";pre.textContent=text;out.append(pre);
+}
+
+function updateToolbar(){
+  toolbar.style.display="flex";
+  btnBack.disabled=(pos<=0);
+  btnRaw.textContent=rawMode?"[ menu view ]":"[ raw gopher ]";
+}
+
+async function go(url,pushHistory=true){
+  err.textContent="";out.textContent="summoning...";u.value=url;rawMode=false;
+  const prevPos=pos,prevUrl=lastUrl;
   try{
     const r=await fetch("/api/browse?url="+encodeURIComponent(url));
     const d=await r.json();
     if(!r.ok)throw new Error(d.error);
-    out.textContent="";
-    for(const it of d.items){
-      if(it.type==="h"){
-        const b=document.createElement("button");b.className="link";b.textContent="[h] "+it.display;
-        b.onclick=()=>go(it.selector.slice(4));out.append(b);
-      }else{const l=document.createElement("div");l.className="line";l.textContent=it.display;out.append(l);}
+    lastItems=d.items;lastUrl=url;
+    if(pushHistory){
+      // Drop any forward history when navigating to a new page.
+      hist=hist.slice(0,pos+1);
+      hist.push(url);pos=hist.length-1;
     }
+    renderMenu(d.items);
+    updateToolbar();
     scrollTo(0,0);
-  }catch(e){out.textContent="";err.textContent="The spirits refused: "+e.message;}
+  }catch(e){pos=prevPos;u.value=prevUrl||url;out.textContent="";err.textContent="The spirits refused: "+e.message;}
 }
+
+function back(){
+  if(pos>0){pos--;go(hist[pos],false);}
+}
+
+btnBack.onclick=back;
+
+btnRaw.onclick=async()=>{
+  if(!lastUrl)return;
+  rawMode=!rawMode;
+  if(rawMode){
+    out.textContent="fetching raw...";
+    try{
+      const r=await fetch("/api/browse?url="+encodeURIComponent(lastUrl)+"&raw=1");
+      if(!r.ok)throw new Error(await r.text());
+      renderRaw(await r.text());
+    }catch(e){rawMode=false;err.textContent="Raw fetch failed: "+e.message;}
+  }else{
+    if(lastItems)renderMenu(lastItems);
+  }
+  updateToolbar();
+};
+
 document.getElementById("f").onsubmit=e=>{e.preventDefault();go(u.value.trim());};
+
+// Keyboard shortcuts: Backspace = back, / = focus URL bar.
+document.addEventListener("keydown",e=>{
+  if(e.target===u)return;
+  if(e.key==="Backspace"&&!e.metaKey&&!e.ctrlKey&&!e.altKey){e.preventDefault();back();}
+  if(e.key==="/"){e.preventDefault();u.focus();u.select();}
+});
 </script></body></html>
