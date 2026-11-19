@@ -6,6 +6,7 @@
 - [x] 5. Add prefers-reduced-motion handling (Req 5.2)
 - [x] 6. Keyboard shortcuts: back (Backspace), focus URL ("/")
 - [x] 7. History stack + "Raw Gopher" view toggle (?raw=1)
+  - Bug fix: `back()` was decrementing `pos` synchronously before `go()` resolved, so `go()`'s internal `prevPos` capture was already the decremented value, making error-recovery restore to the wrong position. Fixed by making `back()` async, computing `target = pos - 1` before calling `go()`, and only committing `pos = target` after `go()` resolves successfully.
 - [ ] 8. AI "Ghostwriter": summarize page at top of menu (use an MCP server or API; add steering for prompts)
 - [ ] 9. Costume polish: ASCII ghost banner, glitch transitions
 - [ ] 10. Real gopher:// support: TCP client for gopher:// URLs (Resurrection depth)

@@ -61,7 +61,7 @@ function updateToolbar(){
 
 async function go(url,pushHistory=true){
   err.textContent="";out.textContent="summoning...";u.value=url;rawMode=false;
-  const prevPos=pos,prevUrl=lastUrl;
+  const savedPos=pos,savedUrl=lastUrl;
   try{
     const r=await fetch("/api/browse?url="+encodeURIComponent(url));
     const d=await r.json();
@@ -75,11 +75,16 @@ async function go(url,pushHistory=true){
     renderMenu(d.items);
     updateToolbar();
     scrollTo(0,0);
-  }catch(e){pos=prevPos;u.value=prevUrl||url;out.textContent="";err.textContent="The spirits refused: "+e.message;}
+  }catch(e){pos=savedPos;u.value=savedUrl||lastUrl;out.textContent="";err.textContent="The spirits refused: "+e.message;}
 }
 
-function back(){
-  if(pos>0){pos--;go(hist[pos],false);}
+async function back(){
+  if(pos<=0)return;
+  const target=pos-1;
+  await go(hist[target],false);
+  // Only update pos if go() succeeded (pos is restored on error inside go()).
+  if(!err.textContent)pos=target;
+  updateToolbar();
 }
 
 btnBack.onclick=back;
