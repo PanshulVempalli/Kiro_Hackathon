@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import fc from "fast-check";
 import { parseMenu, serializeMenu, wrap, htmlToMenu, type GopherItem } from "../src/gopher.js";
-import { isPrivateHost } from "../src/ssrf.js";
+import { isPrivateHost, assertPublicUrl, assertPublicGopherUrl } from "../src/ssrf.js";
 import { parseGopherUrl, fetchRaw, fetchGopherMenu } from "../src/gopherClient.js";
 import net from "node:net";
 
@@ -45,6 +45,64 @@ describe("ssrf", () => {
   it("blocks private hosts", () => {
     for (const h of ["localhost", "127.0.0.1", "10.1.2.3", "192.168.0.1", "169.254.169.254", "172.20.0.1", "[::1]"]) expect(isPrivateHost(h)).toBe(true);
     expect(isPrivateHost("example.com")).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// assertPublicUrl — HTTP/S guard including non-standard port check
+// ---------------------------------------------------------------------------
+describe("assertPublicUrl", () => {
+  it("accepts standard http and https URLs", () => {
+    expect(() => assertPublicUrl("http://example.com/path")).not.toThrow();
+    expect(() => assertPublicUrl("https://example.com/path")).not.toThrow();
+    expect(() => assertPublicUrl("https://example.com:443/path")).not.toThrow();
+    expect(() => assertPublicUrl("http://example.com:80/path")).not.toThrow();
+  });
+
+  it("rejects gopher:// URLs", () => {
+    expect(() => assertPublicUrl("gopher://gopher.example.com")).toThrow("Only http(s) URLs are allowed");
+  });
+
+  it("rejects non-standard ports", () => {
+    expect(() => assertPublicUrl("http://example.com:8080/")).toThrow("Non-standard port");
+    expect(() => assertPublicUrl("https://example.com:8443/")).toThrow("Non-standard port");
+  });
+
+  it("rejects private hosts", () => {
+    expect(() => assertPublicUrl("https://192.168.1.1/")).toThrow("not allowed");
+    expect(() => assertPublicUrl("https://localhost/")).toThrow("not allowed");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// assertPublicGopherUrl — gopher:// SSRF guard
+// ---------------------------------------------------------------------------
+describe("assertPublicGopherUrl", () => {
+  it("accepts standard gopher URLs (port 70 and 7070)", () => {
+    expect(() => assertPublicGopherUrl("gopher://gopher.example.com")).not.toThrow();
+    expect(() => assertPublicGopherUrl("gopher://gopher.example.com:70/1/")).not.toThrow();
+    expect(() => assertPublicGopherUrl("gopher://gopher.example.com:7070/1/")).not.toThrow();
+  });
+
+  it("rejects http:// URLs", () => {
+    expect(() => assertPublicGopherUrl("https://example.com")).toThrow("Only gopher://");
+  });
+
+  it("rejects private hosts", () => {
+    expect(() => assertPublicGopherUrl("gopher://localhost/")).toThrow("not allowed");
+    expect(() => assertPublicGopherUrl("gopher://10.0.0.1/")).toThrow("not allowed");
+    expect(() => assertPublicGopherUrl("gopher://192.168.1.1/")).toThrow("not allowed");
+  });
+
+  it("rejects non-standard ports", () => {
+    expect(() => assertPublicGopherUrl("gopher://gopher.example.com:1234/")).toThrow("Non-standard Gopher port");
+    expect(() => assertPublicGopherUrl("gopher://gopher.example.com:9999/")).toThrow("Non-standard Gopher port");
+  });
+
+  it("property: any private IP is always blocked", () => {
+    for (const h of ["127.0.0.1", "10.1.2.3", "172.16.0.1", "192.168.0.1", "169.254.1.1"]) {
+      expect(() => assertPublicGopherUrl(`gopher://${h}/`)).toThrow("not allowed");
+    }
   });
 });
 

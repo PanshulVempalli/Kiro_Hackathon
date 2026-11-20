@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { htmlToMenu, serializeMenu, type GopherItem } from "./gopher.js";
-import { assertPublicUrl, isPrivateHost } from "./ssrf.js";
+import { assertPublicUrl, assertPublicGopherUrl, isPrivateHost } from "./ssrf.js";
 import { fetchGopherMenu, fetchRaw, parseGopherUrl } from "./gopherClient.js";
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "public");
@@ -122,8 +122,8 @@ http
     if (u.pathname === "/api/gopher") {
       try {
         const raw = u.searchParams.get("url") ?? "";
+        assertPublicGopherUrl(raw);  // SSRF: validates protocol, private hosts, and port
         const { host, port, type, selector } = parseGopherUrl(raw);
-        if (isPrivateHost(host)) throw new Error("Target host is not allowed");
         const isRaw = u.searchParams.get("raw") === "1";
         if (isRaw) {
           const text = await fetchRaw(host, port, selector);

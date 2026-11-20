@@ -102,6 +102,7 @@ button[aria-pressed="true"]{background:var(--link);border-color:var(--link);colo
     <button data-url="https://en.wikipedia.org/wiki/Gopher_(protocol)">The Gopher protocol on Wikipedia</button>
     <button data-url="https://text.npr.org">NPR's text-only news</button>
     <button data-url="https://example.com">example.com</button>
+    <button data-url="gopher://gopher.floodgap.com">A real Gopher server (Floodgap)</button>
   </div>
 </section>
 </main>
@@ -167,21 +168,28 @@ async function load(url){
   out.classList.remove("draw");out.textContent="Summoning...";
   u.value=url;statusEl.textContent="connecting to "+url;
   try{
-    const r=await fetch("/api/browse?url="+encodeURIComponent(url)+(raw?"&raw=1":""));
+    const ep=url.toLowerCase().startsWith("gopher://")?"/api/gopher":"/api/browse";
+    const r=await fetch(ep+"?url="+encodeURIComponent(url)+(raw?"&raw=1":""));
     out.textContent="";
     if(!r.ok){const d=await r.json();throw new Error(d.error||"request failed")}
     if(raw){
       const text=await r.text();
-      text.split("\r\n").forEach(l=>out.append(line(l.replace(/\t/g,"  \u2502  "))));
-      statusEl.textContent="raw gopher menu, "+text.split("\r\n").length+" lines";
+      const rows=text.split(/\r?\n/);
+      rows.forEach(l=>out.append(line(l.replace(/\t/g,"  \u2502  "))));
+      statusEl.textContent="raw gopher menu, "+rows.length+" lines";
     }else{
       const d=await r.json();
       for(const it of d.items){
-        if(it.type==="h"){
+        let target=null;
+        if(it.type==="h"&&String(it.selector).startsWith("URL:"))target=it.selector.slice(4);
+        else if((it.type==="1"||it.type==="0")&&it.host&&it.host!=="(null)")
+          target="gopher://"+it.host+(it.port&&it.port!==70?":"+it.port:"")+"/"+it.type+it.selector;
+        if(target){
           const b=document.createElement("button");b.className="link";
-          const t=document.createElement("span");t.className="t";t.textContent="[h]";
+          const t=document.createElement("span");t.className="t";
+          t.textContent=it.type==="1"?"[/]":it.type==="0"?"[t]":"[h]";
           b.append(t,document.createTextNode(it.display));
-          b.onclick=()=>go(it.selector.slice(4));out.append(b);
+          b.onclick=()=>go(target);out.append(b);
         }else out.append(line(it.display));
       }
       statusEl.textContent=d.items.length+" lines from "+(d.url||url);
@@ -190,7 +198,7 @@ async function load(url){
     void out.offsetWidth;out.classList.add("draw");scrollTo(0,0);
   }catch(e){
     out.textContent="";
-    err.textContent="Could not load that page: "+e.message+". Check the address starts with http:// or https://.";
+    err.textContent="Could not load that page: "+e.message+". Check the address starts with http://, https:// or gopher://.";
     statusEl.textContent="failed";
   }
 }
