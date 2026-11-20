@@ -1,56 +1,407 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>GopherGhost</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
-:root{--g:#7CFF6B;--bg:#050a05;--dim:#2f7a2a}
-*{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--g);font:16px/1.35 "IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;min-height:100vh}
-body::after{content:"";position:fixed;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(0,0,0,.25) 0 1px,transparent 1px 3px);animation:flick 4s infinite}
-@keyframes flick{50%{opacity:.85}}
-@media(prefers-reduced-motion:reduce){body::after{animation:none}}
-main{max-width:84ch;margin:0 auto;padding:24px 16px 80px;text-shadow:0 0 6px var(--g)}
-h1{font-size:1.1rem;margin:0 0 4px;letter-spacing:.2em}
-.sub{color:var(--dim);margin-bottom:16px}
-form{display:flex;gap:8px;margin-bottom:16px}
-input{flex:1;background:#000;border:1px solid var(--g);color:var(--g);padding:8px;font:inherit}
-button,.link{background:none;border:0;color:var(--g);font:inherit;cursor:pointer;text-align:left;padding:0}
-form button{border:1px solid var(--g);padding:8px 14px}
-.link{display:block;width:100%;text-decoration:underline}
-.link:hover,.link:focus{background:var(--g);color:#000;outline:none}
-.line{white-space:pre-wrap;min-height:1.35em}
-#err{color:#ff6b6b}
-</style></head>
-<body><main>
-<h1>👻 GOPHERGHOST</h1>
-<div class="sub">The 1991 internet, haunting the modern web. Enter any URL.</div>
-<form id="f"><input id="u" aria-label="URL" placeholder="https://en.wikipedia.org/wiki/Gopher_(protocol)" autofocus><button>GO</button></form>
-<div id="toolbar" style="display:none;margin-bottom:12px;gap:8px;flex-wrap:wrap">
-  <button id="btn-back" class="link" style="text-decoration:none;border:1px solid var(--dim);padding:4px 10px" disabled>← back</button>
-  <button id="btn-raw"  class="link" style="text-decoration:none;border:1px solid var(--dim);padding:4px 10px">[ raw gopher ]</button>
-</div>
-<div id="err" role="alert"></div>
-<div id="out" aria-live="polite"></div>
+/* ── Tokens ───────────────────────────────────────────────────────── */
+:root {
+  --g:        #7CFF6B;
+  --g-bright: #AFFFAA;
+  --g-dim:    #3a9430;
+  --g-ghost:  #1a4018;
+  --bg:       #030805;
+  --bg-panel: #060e06;
+  --bg-input: #000;
+  --radius:   2px;
+  --glow-sm:  0 0 4px var(--g), 0 0 10px rgba(124,255,107,.3);
+  --glow-md:  0 0 6px var(--g), 0 0 20px rgba(124,255,107,.35), 0 0 40px rgba(124,255,107,.1);
+  --glow-lg:  0 0 8px var(--g-bright), 0 0 30px rgba(124,255,107,.5), 0 0 70px rgba(124,255,107,.15);
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+
+/* ── Reset ────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* ── CRT body ─────────────────────────────────────────────────────── */
+html { background: #000; }
+
+body {
+  min-height: 100vh;
+  background: radial-gradient(ellipse at 50% 40%, #0a1a08 0%, var(--bg) 70%);
+  color: var(--g);
+  font: 400 15px/1.5 var(--mono);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Scanlines */
+body::before {
+  content: "";
+  position: fixed; inset: 0;
+  pointer-events: none; z-index: 100;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0,0,0,.18) 0px,
+    rgba(0,0,0,.18) 1px,
+    transparent    1px,
+    transparent    3px
+  );
+}
+
+/* Phosphor flicker */
+body::after {
+  content: "";
+  position: fixed; inset: 0;
+  pointer-events: none; z-index: 99;
+  background: transparent;
+  animation: phosphor 8s ease-in-out infinite;
+  opacity: 0;
+}
+@keyframes phosphor {
+  0%,100% { opacity: 0 }
+  48%     { opacity: 0 }
+  50%     { opacity: .04 }
+  52%     { opacity: 0 }
+  74%     { opacity: 0 }
+  75%     { opacity: .025 }
+  76%     { opacity: 0 }
+}
+@media (prefers-reduced-motion: reduce) {
+  body::after { animation: none }
+}
+
+/* ── Layout ───────────────────────────────────────────────────────── */
+main {
+  max-width: 86ch;
+  margin: 0 auto;
+  padding: 48px 20px 100px;
+}
+
+/* ── Header ───────────────────────────────────────────────────────── */
+.header {
+  margin-bottom: 36px;
+  border-bottom: 1px solid var(--g-ghost);
+  padding-bottom: 24px;
+}
+
+.logo-line {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  margin-bottom: 6px;
+}
+
+.logo {
+  font-size: 1.9rem;
+  font-weight: 700;
+  letter-spacing: .18em;
+  text-shadow: var(--glow-lg);
+  color: var(--g-bright);
+  line-height: 1;
+}
+
+.logo-ghost {
+  font-size: 1.9rem;
+  line-height: 1;
+  filter: drop-shadow(0 0 8px rgba(124,255,107,.6));
+  animation: ghost-float 6s ease-in-out infinite;
+}
+@keyframes ghost-float {
+  0%,100% { transform: translateY(0) }
+  50%     { transform: translateY(-3px) }
+}
+@media (prefers-reduced-motion: reduce) { .logo-ghost { animation: none } }
+
+.tagline {
+  color: var(--g-dim);
+  font-size: .8rem;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+/* ── URL bar ──────────────────────────────────────────────────────── */
+.url-form {
+  display: flex;
+  gap: 0;
+  margin-bottom: 20px;
+  box-shadow: var(--glow-sm);
+  border: 1px solid var(--g-dim);
+  border-radius: var(--radius);
+  background: var(--bg-input);
+  transition: box-shadow .2s, border-color .2s;
+}
+.url-form:focus-within {
+  border-color: var(--g);
+  box-shadow: var(--glow-md);
+}
+
+#u {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--g-bright);
+  padding: 10px 14px;
+  font: inherit;
+  font-size: .95rem;
+  outline: none;
+  caret-color: var(--g-bright);
+  min-width: 0;
+}
+#u::placeholder { color: var(--g-ghost); }
+
+.go-btn {
+  background: none;
+  border: none;
+  border-left: 1px solid var(--g-dim);
+  color: var(--g);
+  font: 700 .85rem/1 var(--mono);
+  letter-spacing: .15em;
+  padding: 10px 18px;
+  cursor: pointer;
+  transition: background .15s, color .15s, text-shadow .15s;
+  white-space: nowrap;
+}
+.go-btn:hover, .go-btn:focus {
+  background: var(--g);
+  color: #000;
+  outline: none;
+  text-shadow: none;
+}
+
+/* ── Toolbar ──────────────────────────────────────────────────────── */
+#toolbar {
+  display: none;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+  align-items: center;
+}
+
+.tool-btn {
+  background: none;
+  border: 1px solid var(--g-ghost);
+  color: var(--g-dim);
+  font: inherit;
+  font-size: .78rem;
+  letter-spacing: .1em;
+  padding: 4px 12px;
+  cursor: pointer;
+  border-radius: var(--radius);
+  text-align: left;
+  transition: border-color .15s, color .15s, box-shadow .15s;
+}
+.tool-btn:not(:disabled):hover, .tool-btn:not(:disabled):focus {
+  border-color: var(--g);
+  color: var(--g);
+  box-shadow: var(--glow-sm);
+  outline: none;
+}
+.tool-btn:disabled {
+  opacity: .3;
+  cursor: not-allowed;
+}
+
+/* ── Bloat bar ────────────────────────────────────────────────────── */
+#bloat {
+  display: none;
+  font-size: .75rem;
+  letter-spacing: .07em;
+  color: var(--g-dim);
+  margin-bottom: 14px;
+  padding: 6px 10px;
+  border-left: 2px solid var(--g-ghost);
+  background: rgba(124,255,107,.025);
+}
+#bloat span { color: var(--g); }
+
+/* ── Error ────────────────────────────────────────────────────────── */
+#err {
+  font-size: .85rem;
+  color: #ff6b6b;
+  text-shadow: 0 0 6px rgba(255,80,80,.5);
+  margin-bottom: 10px;
+  min-height: 0;
+}
+#err:not(:empty) { margin-bottom: 14px; }
+
+/* ── Output area ──────────────────────────────────────────────────── */
+#out { line-height: 1.55; }
+
+#out pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font: inherit;
+  color: var(--g);
+}
+
+/* Menu items */
+.line {
+  white-space: pre-wrap;
+  min-height: 1.55em;
+  color: var(--g-dim);
+  padding: 1px 0;
+}
+
+.link {
+  display: block;
+  width: 100%;
+  background: none;
+  border: none;
+  color: var(--g);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  padding: 2px 0;
+  text-decoration: none;
+  transition: color .1s, text-shadow .1s;
+  position: relative;
+}
+.link::before {
+  content: "▸";
+  display: inline-block;
+  width: 1.4em;
+  opacity: 0;
+  color: var(--g-bright);
+  transition: opacity .1s, transform .1s;
+  transform: translateX(-4px);
+}
+.link:hover, .link:focus {
+  color: var(--g-bright);
+  text-shadow: var(--glow-sm);
+  outline: none;
+}
+.link:hover::before, .link:focus::before {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* Item-type badges */
+.badge {
+  display: inline-block;
+  font-size: .68rem;
+  letter-spacing: .08em;
+  color: var(--g-dim);
+  border: 1px solid var(--g-ghost);
+  padding: 0 5px;
+  margin-right: 6px;
+  vertical-align: middle;
+  border-radius: var(--radius);
+  transition: border-color .1s, color .1s;
+}
+.link:hover .badge, .link:focus .badge {
+  border-color: var(--g-dim);
+  color: var(--g);
+}
+
+/* Loading pulse */
+.loading {
+  animation: pulse-text 1s ease-in-out infinite;
+  color: var(--g-dim) !important;
+  text-shadow: none !important;
+}
+@keyframes pulse-text {
+  0%,100% { opacity: .4 }
+  50%     { opacity: 1   }
+}
+@media (prefers-reduced-motion: reduce) { .loading { animation: none; opacity: .7 } }
+
+/* ── Cursor blink on empty state ──────────────────────────────────── */
+.cursor::after {
+  content: "█";
+  animation: blink .9s step-end infinite;
+}
+@keyframes blink { 50% { opacity: 0 } }
+</style>
+</head>
+<body>
+<main>
+  <header class="header">
+    <div class="logo-line">
+      <span class="logo-ghost">👻</span>
+      <span class="logo">GOPHERGHOST</span>
+    </div>
+    <div class="tagline">The 1991 internet, haunting the modern web</div>
+  </header>
+
+  <form id="f" class="url-form">
+    <input id="u" aria-label="URL" placeholder="https://en.wikipedia.org/wiki/Gopher_(protocol)" autofocus>
+    <button class="go-btn">GO</button>
+  </form>
+
+  <div id="toolbar">
+    <button id="btn-back" class="tool-btn" disabled>← back</button>
+    <button id="btn-raw"  class="tool-btn">[ raw gopher ]</button>
+  </div>
+
+  <div id="err" role="alert"></div>
+  <div id="bloat" aria-live="polite"></div>
+  <div id="out"  aria-live="polite"><span class="cursor"></span></div>
 </main>
 <script>
 const out=document.getElementById("out"),err=document.getElementById("err"),u=document.getElementById("u");
 const toolbar=document.getElementById("toolbar"),btnBack=document.getElementById("btn-back"),btnRaw=document.getElementById("btn-raw");
+const bloat=document.getElementById("bloat");
 
-// History stack: array of URLs, pos points at the current entry.
 let hist=[],pos=-1,rawMode=false,lastItems=null,lastUrl="";
 
+function fmtBytes(b){
+  if(b>=1_048_576)return(b/1_048_576).toFixed(1)+" MB";
+  if(b>=1024)return(b/1024).toFixed(1)+" KB";
+  return b+" B";
+}
+
+function showBloat(originalBytes,ghostBytes){
+  const saved=Math.min(100,Math.max(0,originalBytes>0?Math.round((1-ghostBytes/originalBytes)*1000)/10:0));
+  bloat.innerHTML="Original <span>"+fmtBytes(originalBytes)+"</span> → Ghost <span>"+fmtBytes(ghostBytes)+"</span> — <span>"+saved+"% banished</span>";
+  bloat.style.display="block";
+}
+
+function gopherItemUrl(it){
+  if(it.type==="h"&&it.selector.startsWith("URL:"))return it.selector.slice(4);
+  const port=it.port&&it.port!==70?":"+it.port:"";
+  const sel=encodeURIComponent(it.selector||"");
+  return "gopher://"+it.host+port+"/"+it.type+sel;
+}
+
+const TYPE_LABEL={"1":"menu","0":"text","h":"http","i":"info","7":"search","9":"bin","g":"gif","I":"img","s":"sound"};
+
+function mkBadge(type){
+  const s=document.createElement("span");
+  s.className="badge";
+  s.textContent=TYPE_LABEL[type]||type;
+  return s;
+}
+
 function renderMenu(items){
-  out.textContent="";
+  out.innerHTML="";
   for(const it of items){
-    if(it.type==="h"){
-      const b=document.createElement("button");b.className="link";b.textContent="[h] "+it.display;
-      b.onclick=()=>go(it.selector.slice(4));out.append(b);
-    }else{const l=document.createElement("div");l.className="line";l.textContent=it.display;out.append(l);}
+    if(it.type==="h"||it.type==="1"||it.type==="0"){
+      const b=document.createElement("button");
+      b.className="link";
+      b.append(mkBadge(it.type));
+      b.append(document.createTextNode(it.display));
+      const target=it.type==="h"&&it.selector.startsWith("URL:")?it.selector.slice(4):gopherItemUrl(it);
+      b.onclick=()=>go(target);
+      out.append(b);
+    }else{
+      const l=document.createElement("div");
+      l.className="line";
+      l.textContent=it.type==="i"?"  "+it.display:it.display;
+      out.append(l);
+    }
   }
 }
 
 function renderRaw(text){
-  out.textContent="";
-  const pre=document.createElement("pre");pre.style.whiteSpace="pre-wrap";pre.textContent=text;out.append(pre);
+  out.innerHTML="";
+  const pre=document.createElement("pre");pre.textContent=text;out.append(pre);
+}
+
+function setLoading(msg){
+  out.innerHTML="";
+  const d=document.createElement("div");
+  d.className="line loading";d.textContent=msg;out.append(d);
 }
 
 function updateToolbar(){
@@ -60,29 +411,38 @@ function updateToolbar(){
 }
 
 async function go(url,pushHistory=true){
-  err.textContent="";out.textContent="summoning...";u.value=url;rawMode=false;
+  err.textContent="";
+  setLoading("summoning…");
+  u.value=url;rawMode=false;
   const savedPos=pos,savedUrl=lastUrl;
+  const isGopher=url.startsWith("gopher://");
+  const endpoint=isGopher?"/api/gopher":"/api/browse";
   try{
-    const r=await fetch("/api/browse?url="+encodeURIComponent(url));
+    const r=await fetch(endpoint+"?url="+encodeURIComponent(url));
     const d=await r.json();
     if(!r.ok)throw new Error(d.error);
     lastItems=d.items;lastUrl=url;
-    if(pushHistory){
-      // Drop any forward history when navigating to a new page.
-      hist=hist.slice(0,pos+1);
-      hist.push(url);pos=hist.length-1;
-    }
+    if(pushHistory){hist=hist.slice(0,pos+1);hist.push(url);pos=hist.length-1;}
     renderMenu(d.items);
-    updateToolbar();
-    scrollTo(0,0);
-  }catch(e){pos=savedPos;u.value=savedUrl||lastUrl;out.textContent="";err.textContent="The spirits refused: "+e.message;}
+    if(isGopher){
+      bloat.innerHTML="Gopher — <span>"+fmtBytes(d.rawBytes||0)+"</span>";
+      bloat.style.display="block";
+    }else{
+      showBloat(d.originalBytes??0,d.ghostBytes??0);
+    }
+    updateToolbar();scrollTo(0,0);
+  }catch(e){
+    pos=savedPos;u.value=savedUrl||lastUrl;
+    out.innerHTML='<span class="cursor"></span>';
+    bloat.style.display="none";
+    err.textContent="The spirits refused: "+e.message;
+  }
 }
 
 async function back(){
   if(pos<=0)return;
   const target=pos-1;
   await go(hist[target],false);
-  // Only update pos if go() succeeded (pos is restored on error inside go()).
   if(!err.textContent)pos=target;
   updateToolbar();
 }
@@ -93,9 +453,11 @@ btnRaw.onclick=async()=>{
   if(!lastUrl)return;
   rawMode=!rawMode;
   if(rawMode){
-    out.textContent="fetching raw...";
+    setLoading("fetching raw…");
     try{
-      const r=await fetch("/api/browse?url="+encodeURIComponent(lastUrl)+"&raw=1");
+      const isGopher=lastUrl.startsWith("gopher://");
+      const endpoint=isGopher?"/api/gopher":"/api/browse";
+      const r=await fetch(endpoint+"?url="+encodeURIComponent(lastUrl)+"&raw=1");
       if(!r.ok)throw new Error(await r.text());
       renderRaw(await r.text());
     }catch(e){rawMode=false;err.textContent="Raw fetch failed: "+e.message;}
@@ -107,7 +469,6 @@ btnRaw.onclick=async()=>{
 
 document.getElementById("f").onsubmit=e=>{e.preventDefault();go(u.value.trim());};
 
-// Keyboard shortcuts: Backspace = back, / = focus URL bar.
 document.addEventListener("keydown",e=>{
   if(e.target===u)return;
   if(e.key==="Backspace"&&!e.metaKey&&!e.ctrlKey&&!e.altKey){e.preventDefault();back();}

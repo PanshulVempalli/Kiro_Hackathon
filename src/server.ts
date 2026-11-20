@@ -3,7 +3,8 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { htmlToMenu, serializeMenu } from "./gopher.js";
-import { assertPublicUrl } from "./ssrf.js";
+import { assertPublicUrl, isPrivateHost } from "./ssrf.js";
+import { fetchGopherMenu, fetchRaw, parseGopherUrl } from "./gopherClient.js";
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "public");
 const MAX_BYTES = 500_000;
@@ -32,7 +33,34 @@ http
         const items = htmlToMenu(html, url);
         const raw = u.searchParams.get("raw") === "1";
         res.writeHead(200, { "content-type": raw ? "text/plain; charset=utf-8" : "application/json" });
-        res.end(raw ? serializeMenu(items) : JSON.stringify({ url, items }));
+        if (raw) {
+          res.end(serializeMenu(items));
+        } else {
+          const originalBytes = Buffer.byteLength(html, "utf8");
+          const ghostBytes = Buffer.byteLength(serializeMenu(items), "utf8");
+          res.end(JSON.stringify({ url, items, originalBytes, ghostBytes }));
+        }
+      } catch (e) {
+        res.writeHead(400, { "content-type": "application/json" });
+        res.end(JSON.stringify({ error: (e as Error).message }));
+      }
+      return;
+    }
+    if (u.pathname === "/api/gopher") {
+      try {
+        const raw = u.searchParams.get("url") ?? "";
+        const { host, port, type, selector } = parseGopherUrl(raw);
+        if (isPrivateHost(host)) throw new Error("Target host is not allowed");
+        const rawParam = u.searchParams.get("raw") === "1";
+        if (rawParam) {
+          const text = await fetchRaw(host, port, selector);
+          res.writeHead(200, { "content-type": "text/plain; charset=utf-8" });
+          res.end(text);
+        } else {
+          const { items, rawBytes } = await fetchGopherMenu(raw);
+          res.writeHead(200, { "content-type": "application/json" });
+          res.end(JSON.stringify({ items, rawBytes, protocol: "gopher" }));
+        }
       } catch (e) {
         res.writeHead(400, { "content-type": "application/json" });
         res.end(JSON.stringify({ error: (e as Error).message }));

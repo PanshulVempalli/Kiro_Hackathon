@@ -22,3 +22,8 @@
 ## 5. Haunted UI (Resurrection theme)
 1. THE UI SHALL present a green phosphor CRT look with scanlines and flicker.
 2. WHERE prefers-reduced-motion is set THEN flicker SHALL be disabled.
+
+## 6. Bloat meter
+1. WHEN a page loads THEN the system SHALL return the original HTML size in bytes and the GopherGhost output size in bytes in the JSON response.
+2. WHEN the UI renders a page THEN it SHALL display the original size in KB, the ghost size in KB, and the percent saved above the menu, e.g. "Original 2.4 MB → Ghost 6 KB (99.7% banished)".
+3. THE percent saved SHALL always be between 0 and 100 inclusive.

@@ -11,3 +11,4 @@
 - [ ] 9. Costume polish: ASCII ghost banner, glitch transitions
 - [ ] 10. Real gopher:// support: TCP client for gopher:// URLs (Resurrection depth)
 - [ ] 11. Deploy (Render/Fly/AWS), record demo, finish README write-up
+- [x] 12. Bloat meter: server returns `originalBytes`+`ghostBytes` in JSON; UI shows "Original X → Ghost Y (Z% banished)" above the menu in CRT style; property test that saved percent is always 0–100
