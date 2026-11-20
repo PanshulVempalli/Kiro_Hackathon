@@ -63,6 +63,16 @@ button[aria-pressed="true"]{background:var(--link);border-color:var(--link);colo
   @keyframes flick{0%,100%{opacity:1}47%{opacity:.4}50%{opacity:1}53%{opacity:.6}}
   #out.draw{animation:draw .7s steps(28) both}
   @keyframes draw{from{clip-path:inset(0 0 100% 0)}to{clip-path:inset(0 0 0 0)}}
+  #out.glitch{animation:glitch .35s steps(1) both}
+  @keyframes glitch{
+    0%  {transform:translate(0,0);filter:none}
+    15% {transform:translate(-3px,1px);filter:hue-rotate(90deg) brightness(1.4)}
+    30% {transform:translate(3px,-1px);filter:hue-rotate(-90deg) brightness(.7)}
+    45% {transform:translate(-2px,2px);filter:none}
+    60% {transform:translate(2px,-2px);filter:brightness(1.6)}
+    75% {transform:translate(-1px,1px);filter:none}
+    100%{transform:translate(0,0);filter:none}
+  }
 }
 @media (max-width:560px){body{font-size:20px}.status .keys{display:none}}
 </style></head>
@@ -165,7 +175,7 @@ function showMeter(o,g){
 
 async function load(url){
   err.textContent="";meter.hidden=true;empty.hidden=true;srEl.textContent="";
-  out.classList.remove("draw");out.textContent="Summoning...";
+  out.classList.remove("draw","glitch");out.textContent="Summoning...";
   u.value=url;statusEl.textContent="connecting to "+url;
   try{
     const ep=url.toLowerCase().startsWith("gopher://")?"/api/gopher":"/api/browse";
@@ -195,7 +205,10 @@ async function load(url){
       statusEl.textContent=d.items.length+" lines from "+(d.url||url);
       if(d.originalBytes&&d.ghostBytes!=null)showMeter(d.originalBytes,d.ghostBytes);
     }
-    void out.offsetWidth;out.classList.add("draw");scrollTo(0,0);
+    void out.offsetWidth;
+    if(!reduce){out.classList.add("glitch");out.addEventListener("animationend",()=>{out.classList.remove("glitch");out.classList.add("draw")},{once:true})}
+    else{out.classList.add("draw")}
+    scrollTo(0,0);
   }catch(e){
     out.textContent="";
     err.textContent="Could not load that page: "+e.message+". Check the address starts with http://, https:// or gopher://.";
