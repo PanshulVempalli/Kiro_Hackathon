@@ -1,8 +1,0 @@
-{
-  "enabled": true,
-  "name": "Sync spec tasks",
-  "description": "Keep tasks.md checkboxes truthful when code changes.",
-  "version": "1",
-  "when": { "type": "fileEdited", "patterns": ["src/**/*.ts", "public/**/*"] },
-  "then": { "type": "askAgent", "prompt": "Compare the code with .kiro/specs/gopherghost/tasks.md and tick any completed tasks. Do not tick tasks that are not fully done." }
-}
