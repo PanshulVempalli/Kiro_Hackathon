@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GopherGhost</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#070a06; --ink:#9cf08a; --dim:#5fa055; --link:#ffb454; --bad:#ff7a6b; --ghost:#e8f5e1;
+  --font:"VT323","IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+html{background:var(--bg)}
+body{margin:0;color:var(--ink);font:22px/1.25 var(--font);min-height:100vh;
+  background:radial-gradient(ellipse at 50% 30%,#0d150b 0%,var(--bg) 70%);}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:5;
+  background:repeating-linear-gradient(0deg,rgba(0,0,0,.28) 0 1px,transparent 1px 3px),
+             radial-gradient(ellipse at center,transparent 60%,rgba(0,0,0,.55) 100%);}
+.screen{max-width:80ch;margin:0 auto;padding:20px 16px 90px;text-shadow:0 0 5px rgba(156,240,138,.45)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.banner{margin:0 0 6px;color:var(--ghost);font:inherit;line-height:1.1;text-shadow:0 0 8px rgba(232,245,225,.6)}
+.tag{margin:0 0 18px;color:var(--dim)}
+.bar{display:flex;gap:8px;align-items:stretch;margin-bottom:14px;flex-wrap:wrap}
+.bar form{display:flex;gap:8px;flex:1;min-width:240px}
+input{flex:1;min-width:0;background:#000;border:1px solid var(--dim);color:var(--ink);padding:6px 10px;font:inherit;caret-color:var(--link)}
+input::placeholder{color:var(--dim)}
+button{font:inherit;color:var(--ink);background:none;border:1px solid var(--dim);padding:6px 12px;cursor:pointer;text-shadow:inherit}
+button:hover:not(:disabled){background:var(--ink);color:#000;text-shadow:none}
+button:disabled{opacity:.35;cursor:default}
+button[aria-pressed="true"]{background:var(--link);border-color:var(--link);color:#000;text-shadow:none}
+:focus-visible{outline:2px solid var(--link);outline-offset:2px}
+#meter{margin:0 0 14px;padding:8px 10px;border-left:3px solid var(--link);color:var(--link);background:rgba(255,180,84,.07)}
+#err{color:var(--bad);margin-bottom:10px}
+.line{white-space:pre-wrap;min-height:1.25em;max-width:72ch}
+.link{display:block;width:100%;max-width:72ch;text-align:left;border:0;padding:0;color:var(--link);text-decoration:underline;text-underline-offset:3px}
+.link .t{color:var(--dim);text-decoration:none;display:inline-block;width:4ch}
+.link:hover,.link:focus-visible{background:var(--link);color:#000;text-shadow:none;outline:none}
+.link:hover .t,.link:focus-visible .t{color:#000}
+#empty p{margin:0 0 8px;color:var(--dim)}
+.chips{display:flex;flex-direction:column;gap:4px;align-items:flex-start}
+.chips button{border:0;padding:0;color:var(--link);text-decoration:underline;text-underline-offset:3px}
+.status{position:fixed;left:0;right:0;bottom:0;z-index:6;display:flex;justify-content:space-between;gap:16px;
+  padding:6px 16px;background:#000;border-top:1px solid var(--dim);color:var(--dim);font-size:19px}
+.status span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#boot{position:fixed;inset:0;z-index:10;background:var(--bg);padding:24px 16px;white-space:pre;color:var(--ink)}
+#boot[hidden]{display:none}
+@media (prefers-reduced-motion:no-preference){
+  body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:4;background:rgba(156,240,138,.03);animation:flick 5s infinite}
+  @keyframes flick{0%,100%{opacity:1}47%{opacity:.4}50%{opacity:1}53%{opacity:.6}}
+  #out.draw{animation:draw .7s steps(28) both}
+  @keyframes draw{from{clip-path:inset(0 0 100% 0)}to{clip-path:inset(0 0 0 0)}}
+}
+@media (max-width:560px){body{font-size:20px}.status .keys{display:none}}
+</style></head>
+<body>
+<div id="boot" hidden aria-hidden="true"></div>
+<main class="screen">
+<pre class="banner" aria-hidden="true">  .-"-.
+ / o o \    G O P H E R G H O S T
+ |  ^  |    the 1991 internet, haunting the modern web
+ |/\/\/\|</pre>
+<h1 class="sr">GopherGhost</h1>
+<p class="tag">Paste any web address. It comes back as a plain Gopher menu.</p>
+
+<div class="bar">
+  <button id="back" aria-label="Go back" disabled>&lt; back</button>
+  <button id="fwd" aria-label="Go forward" disabled>fwd &gt;</button>
+  <form id="f">
+    <label class="sr" for="u">Web address</label>
+    <input id="u" placeholder="https://en.wikipedia.org/wiki/Gopher_(protocol)" autocomplete="off" spellcheck="false" autofocus>
+    <button>go</button>
+  </form>
+  <button id="rawBtn" aria-pressed="false" title="Show the raw Gopher menu text">raw gopher</button>
+</div>
+
+<div id="meter" aria-hidden="true" hidden></div>
+<p id="sr" class="sr" role="status"></p>
+<div id="err" role="alert"></div>
+<div id="out" aria-live="polite"></div>
+
+<section id="empty">
+  <p>Nothing summoned yet. Try one of these:</p>
+  <div class="chips">
+    <button data-url="https://en.wikipedia.org/wiki/Gopher_(protocol)">The Gopher protocol on Wikipedia</button>
+    <button data-url="https://text.npr.org">NPR's text-only news</button>
+    <button data-url="https://example.com">example.com</button>
+  </div>
+</section>
+</main>
+
+<div class="status"><span id="status">ready</span><span class="keys">/ address &nbsp; backspace back</span></div>
+
+<script>
+const $=id=>document.getElementById(id);
+const out=$("out"),err=$("err"),u=$("u"),meter=$("meter"),empty=$("empty"),statusEl=$("status"),
+      backB=$("back"),fwdB=$("fwd"),rawB=$("rawBtn"),srEl=$("sr");
+const reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+let hist=[],pos=-1,raw=false;
+
+const kb=n=>n>=1048576?(n/1048576).toFixed(1)+" MB":n>=1024?Math.round(n/1024)+" KB":n+" B";
+const line=(text,cls="line")=>{const d=document.createElement("div");d.className=cls;d.textContent=text;return d};
+
+function syncNav(){backB.disabled=pos<=0;fwdB.disabled=pos>=hist.length-1;rawB.setAttribute("aria-pressed",String(raw))}
+
+function showMeter(o,g){
+  if(!(o>0)||!(g>=0))return;
+  const final=`The page weighed ${kb(o)}. Its ghost weighs ${kb(g)}. ${(100*(1-g/o)).toFixed(1)}% banished.`;
+  meter.hidden=false; srEl.textContent=final;
+  if(reduce){meter.textContent=final;return}
+  const t0=performance.now(),D=1100;
+  (function f(t){
+    const k=Math.min(1,(t-t0)/D),e=1-Math.pow(1-k,3);
+    meter.textContent=k<1?"Exorcising... "+kb(Math.round(o-(o-g)*e)):final;
+    if(k<1)requestAnimationFrame(f);
+  })(t0);
+}
+
+async function load(url){
+  err.textContent="";meter.hidden=true;empty.hidden=true;srEl.textContent="";
+  out.classList.remove("draw");out.textContent="Summoning...";
+  u.value=url;statusEl.textContent="connecting to "+url;
+  try{
+    const r=await fetch("/api/browse?url="+encodeURIComponent(url)+(raw?"&raw=1":""));
+    out.textContent="";
+    if(!r.ok){const d=await r.json();throw new Error(d.error||"request failed")}
+    if(raw){
+      const text=await r.text();
+      text.split("\r\n").forEach(l=>out.append(line(l.replace(/\t/g,"  \u2502  "))));
+      statusEl.textContent="raw gopher menu, "+text.split("\r\n").length+" lines";
+    }else{
+      const d=await r.json();
+      for(const it of d.items){
+        if(it.type==="h"){
+          const b=document.createElement("button");b.className="link";
+          const t=document.createElement("span");t.className="t";t.textContent="[h]";
+          b.append(t,document.createTextNode(it.display));
+          b.onclick=()=>go(it.selector.slice(4));out.append(b);
+        }else out.append(line(it.display));
+      }
+      statusEl.textContent=d.items.length+" lines from "+(d.url||url);
+      if(d.originalBytes&&d.ghostBytes!=null)showMeter(d.originalBytes,d.ghostBytes);
+    }
+    void out.offsetWidth;out.classList.add("draw");scrollTo(0,0);
+  }catch(e){
+    out.textContent="";
+    err.textContent="Could not load that page: "+e.message+". Check the address starts with http:// or https://.";
+    statusEl.textContent="failed";
+  }
+}
+function go(url){if(!url)return;hist=hist.slice(0,pos+1);hist.push(url);pos++;syncNav();load(url)}
+function back(){if(pos>0){pos--;syncNav();load(hist[pos])}}
+function fwd(){if(pos<hist.length-1){pos++;syncNav();load(hist[pos])}}
+
+$("f").onsubmit=e=>{e.preventDefault();go(u.value.trim())};
+backB.onclick=back;fwdB.onclick=fwd;
+rawB.onclick=()=>{raw=!raw;syncNav();if(pos>=0)load(hist[pos])};
+empty.querySelectorAll("[data-url]").forEach(b=>b.onclick=()=>go(b.dataset.url));
+addEventListener("keydown",e=>{
+  if(e.target.matches("input,textarea")||e.metaKey||e.ctrlKey||e.altKey)return;
+  if(e.key==="/"){e.preventDefault();u.focus();u.select()}
+  else if(e.key==="Backspace"){e.preventDefault();back()}
+});
+
+(async function boot(){
+  let seen=false;try{seen=sessionStorage.getItem("gg-boot")==="1"}catch{}
+  if(reduce||seen)return;
+  const el=$("boot");el.hidden=false;
+  let skip=false;const stop=()=>{skip=true};
+  addEventListener("keydown",stop,{once:true});el.addEventListener("click",stop,{once:true});
+  for(const l of ["GOPHERGHOST 0.1","dialing the void... ok","mounting 1991... ok","reading modern web... ok","ready."]){
+    el.textContent+=l+"\n";if(skip)break;await new Promise(r=>setTimeout(r,260));
+  }
+  el.hidden=true;u.focus();
+  try{sessionStorage.setItem("gg-boot","1")}catch{}
+})();
+</script>
+</body></html>
