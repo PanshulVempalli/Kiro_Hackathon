@@ -1,0 +1,14 @@
+# Tasks
+- [x] 1. Pure core: serializeMenu, parseMenu, wrap, htmlToMenu + property tests
+- [x] 2. SSRF guard + tests
+- [x] 3. HTTP server /api/browse
+- [x] 4. CRT front end
+- [x] 5. Add prefers-reduced-motion handling (Req 5.2)
+- [x] 6. Keyboard shortcuts: back (Backspace), focus URL ("/")
+- [x] 7. History stack + "Raw Gopher" view toggle (?raw=1)
+  - Bug fix: `back()` was decrementing `pos` synchronously before `go()` resolved, so `go()`'s internal `prevPos` capture was already the decremented value, making error-recovery restore to the wrong position. Fixed by making `back()` async, computing `target = pos - 1` before calling `go()`, and only committing `pos = target` after `go()` resolves successfully.
+- [ ] 8. AI "Ghostwriter": summarize page at top of menu (use an MCP server or API; add steering for prompts)
+- [ ] 9. Costume polish: ASCII ghost banner, glitch transitions
+- [x] 10. Real gopher:// support: TCP client for gopher:// URLs (Resurrection depth)
+- [ ] 11. Deploy (Render/Fly/AWS), record demo, finish README write-up
+- [x] 12. Bloat meter: server returns `originalBytes`+`ghostBytes` in JSON; UI shows "Original X → Ghost Y (Z% banished)" above the menu in CRT style; property test that saved percent is always 0–100
