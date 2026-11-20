@@ -129,6 +129,17 @@ http
           const text = await fetchRaw(host, port, selector);
           res.writeHead(200, { "content-type": "text/plain; charset=utf-8" });
           res.end(text);
+        } else if (type === "0") {
+          // Type-0 is a plain text file, not a menu. Wrap each line as an info item
+          // so the frontend can render it readably with the standard draw animation.
+          const text = await fetchRaw(host, port, selector);
+          const rawBytes = Buffer.byteLength(text, "utf8");
+          const items: GopherItem[] = text
+            .split(/\r?\n/)
+            .filter((l) => l !== ".")
+            .map((l) => ({ type: "i" as const, display: l, selector: "", host: "(null)", port: 0 }));
+          res.writeHead(200, { "content-type": "application/json" });
+          res.end(JSON.stringify({ items, rawBytes, protocol: "gopher" }));
         } else {
           const { items, rawBytes } = await fetchGopherMenu(raw);
           res.writeHead(200, { "content-type": "application/json" });
